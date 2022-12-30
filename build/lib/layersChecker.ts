@@ -71,7 +71,7 @@ const NATIVE_TYPES = [
 	'ICommonNativeHostService'
 ];
 
-const RULES: IRule[] = [
+export const RULES: IRule[] = [
 
 	// Tests: skip
 	{

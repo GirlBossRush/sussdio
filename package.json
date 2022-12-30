@@ -5,6 +5,12 @@
   "author": {
     "name": "Microsoft Corporation"
   },
+  "contributors": [
+    {
+      "name": "Nirrius, LLC.",
+      "email": "support@nirri.us"
+    }
+  ],
   "license": "MIT",
   "main": "./out/main",
   "private": true,
@@ -49,6 +55,8 @@
     "watch-web": "node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js watch-web",
     "eslint": "node build/eslint",
     "playwright-install": "node build/azure-pipelines/common/installPlaywright.js",
+    "sussudio:package": "node --max_old_space_size=4095 build/lib/sussudio/package.js",
+    "sussudio:docs": "node --max_old_space_size=4095 build/lib/sussudio/generate-docs.js",
     "compile-build": "node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js compile-build",
     "compile-extensions-build": "node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js compile-extensions-build",
     "minify-vscode": "node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js minify-vscode",

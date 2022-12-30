@@ -1,0 +1,48 @@
+{
+  "name": "@sussudio/platform",
+  "version": "0.2.0",
+  "description": "Internal APIs for VS Code's service injection the base services.",
+  "keywords": [
+    "vscode",
+    "audioCues",
+    "checksum",
+    "clipboard",
+    "download",
+    "extensions",
+    "files",
+    "history",
+    "instantiation",
+    "ipc",
+    "issue",
+    "jsonschemas",
+    "keybinding",
+    "keyboardLayout",
+    "lifecycle",
+    "notification",
+    "progress",
+    "protocol",
+    "registry",
+    "remote",
+    "remoteTunnel",
+    "request",
+    "sharedProcess",
+    "shell",
+    "storage",
+    "terminal",
+    "tunnel",
+    "sussdio",
+    "soosudio"
+  ],
+  "homepage": "https://github.com/GirlBossRush/sussudio",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">= 16.14"
+  },
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@sussudio/base": "^0.2.0",
+    "vscode-nls": "^4.1.2"
+  }
+}

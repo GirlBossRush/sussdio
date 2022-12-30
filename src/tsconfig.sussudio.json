@@ -1,0 +1,10 @@
+{
+  "files": [],
+	"compilerOptions": {
+		"outDir": "../out-sussudio",
+	},
+  "references": [
+		{ "path": "./vs/base" },
+		{ "path": "./vs/platform" }
+  ]
+}

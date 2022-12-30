@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+		"rootDir": "..",
+    "outDir": "../../../out-sussudio"
+  },
+  "references": [],
+	"allowJs": true,
+	"include": [
+		"../../typings",
+		"../nls.ts",
+		"../loader.js",
+		"../loader.d.ts",
+		"./common",
+		"./node",
+		"./browser",
+		"./parts",
+		"./worker"
+	],
+	"exclude": [
+		"**/out-sussudio/**/*",
+		"**/test/**/*",
+		"**/tests/**/*",
+		"*/**/*.test.ts",
+	]
+}

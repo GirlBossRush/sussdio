@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
-		"module": "amd",
+		"module": "ESNext",
+		"target": "ES2022",
 		"moduleResolution": "node",
 		"experimentalDecorators": true,
 		"noImplicitReturns": true,
@@ -12,6 +13,7 @@
 		"useUnknownInCatchVariables": false,
 		"forceConsistentCasingInFileNames": true,
 		"baseUrl": ".",
+		"declaration": true,
 		"paths": {
 			"vs/*": [
 				"./vs/*"

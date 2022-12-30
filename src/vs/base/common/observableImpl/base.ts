@@ -6,8 +6,11 @@
 import type { derived } from 'vs/base/common/observableImpl/derived';
 import { getLogger } from 'vs/base/common/observableImpl/logging';
 
-export interface IObservable<T, TChange = void> {
-	readonly TChange: TChange;
+export interface IObservable<T, _TChange = void> {
+	/**
+	 * @sussudio - Changed generic type name to fix API Extractor error.
+	 */
+	readonly TChange: _TChange;
 
 	/**
 	 * Reads the current value.
@@ -92,8 +95,8 @@ export function _setDerived(derived: typeof _derived) {
 	_derived = derived;
 }
 
-export abstract class ConvenientObservable<T, TChange> implements IObservable<T, TChange> {
-	get TChange(): TChange { return null!; }
+export abstract class ConvenientObservable<T, _TChange> implements IObservable<T, _TChange> {
+	get TChange(): _TChange { return null!; }
 
 	public abstract get(): T;
 	public abstract addObserver(observer: IObserver): void;
@@ -119,7 +122,7 @@ export abstract class ConvenientObservable<T, TChange> implements IObservable<T,
 	public abstract get debugName(): string;
 }
 
-export abstract class BaseObservable<T, TChange = void> extends ConvenientObservable<T, TChange> {
+export abstract class BaseObservable<T, _TChange = void> extends ConvenientObservable<T, _TChange> {
 	protected readonly observers = new Set<IObserver>();
 
 	/** @sealed */
@@ -166,7 +169,7 @@ export function getFunctionName(fn: Function): string | undefined {
 export class TransactionImpl implements ITransaction {
 	private updatingObservers: { observer: IObserver; observable: IObservable<any> }[] | null = [];
 
-	constructor(private readonly fn: Function, private readonly _getDebugName?: () => string) { }
+	constructor (private readonly fn: Function, private readonly _getDebugName?: () => string) { }
 
 	public getDebugName(): string | undefined {
 		if (this._getDebugName) {
@@ -193,20 +196,20 @@ export class TransactionImpl implements ITransaction {
 	}
 }
 
-export interface ISettableObservable<T, TChange = void> extends IObservable<T, TChange>, ISettable<T, TChange> {
+export interface ISettableObservable<T, _TChange = void> extends IObservable<T, _TChange>, ISettable<T, _TChange> {
 }
 
 export function observableValue<T, TChange = void>(name: string, initialValue: T): ISettableObservable<T, TChange> {
 	return new ObservableValue(name, initialValue);
 }
 
-export class ObservableValue<T, TChange = void>
-	extends BaseObservable<T, TChange>
-	implements ISettableObservable<T, TChange>
+export class ObservableValue<T, _TChange = void>
+	extends BaseObservable<T, _TChange>
+	implements ISettableObservable<T, _TChange>
 {
 	private value: T;
 
-	constructor(public readonly debugName: string, initialValue: T) {
+	constructor (public readonly debugName: string, initialValue: T) {
 		super();
 		this.value = initialValue;
 	}
@@ -215,7 +218,7 @@ export class ObservableValue<T, TChange = void>
 		return this.value;
 	}
 
-	public set(value: T, tx: ITransaction | undefined, change: TChange): void {
+	public set(value: T, tx: ITransaction | undefined, change: _TChange): void {
 		if (this.value === value) {
 			return;
 		}
