@@ -7,18 +7,14 @@ import * as ts from 'typescript';
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import { dirname, join, relative } from 'path';
-import { PathTransformOptions, tsPathTransform } from './transformers/imports';
+import { PathTransformOptions, tsPathTransform } from '../transformers/imports';
 import * as prettier from 'prettier';
-import { PackageConfig, distRoot, copyrightHeaderLines, packageConfigs, sourceRootPathBuilder } from './common';
+import { PackageConfig, distRoot, copyrightHeaderLines, packageConfigs, sourceRootPathBuilder, sourceRoot } from '../common';
 
 /** File ends with .js or .mjs */
 const jsExtensionPattern = /\.m?js$/;
 /** File ends with .d.ts or .d.mts */
 const tsDeclarationExtensionPattern = /\.d\.m?ts$/;
-
-
-const SOURCE_ROOT = join(__dirname, '../../../', 'src');
-
 
 const pathRewrites = [
 	['vs/nls', 'vscode-nls'],
@@ -53,6 +49,9 @@ function rewriteImports(parentPackageName: string, importedPath: string, importe
 			importedPath = importedPath.replace('.d.ts', '.d.mts');
 		} else if (jsExtensionPattern.test(importedPath)) {
 			importedPath = importedPath.replace('.js', '.mjs');
+		} else if (importedPath.includes('css!')) {
+			// Rewrite to direct CSS import.
+			importedPath = importedPath.replace('css!', '') + '.css';
 		} else {
 			// Add the .mjs extension if it's missing for browser compatiblity.
 			importedPath = importedPath + '.mjs';
@@ -66,7 +65,7 @@ function rewriteImports(parentPackageName: string, importedPath: string, importe
 	// Make the path absolute to the source root.
 	importedPath = importedPath.replace('vs/', '/vs/');
 
-	const absoluteImporterFilePath = join('/', relative(SOURCE_ROOT, importerFilePath));
+	const absoluteImporterFilePath = join('/', relative(sourceRoot, importerFilePath));
 
 	// Then, make the path relative.
 	const relativePath = relative(dirname(absoluteImporterFilePath), importedPath);
@@ -193,24 +192,21 @@ async function compilePackage({ unscopedPackageName, packageName, sourcePackageJ
 		'}'
 	];
 
-	const builtCompilerOptions: ts.CompilerOptions = {
-		module: ts.ModuleKind.NodeNext,
-		target: ts.ScriptTarget.ESNext,
-		allowJs: true,
-	};
-
-	const builtTSConfig = {
-		compilerOptions: builtCompilerOptions,
-	};
-
 	console.log('Copying package files...');
 	await Promise.all([
+		// Include global types in every package...
 		fs.cp(sourceRootPathBuilder('typings'), distPathBuilder('typings'), { 'recursive': true }),
+		// Package.json for Node compatibility...
 		fs.copyFile(sourcePackageJsonPath, distPackageJsonPath),
+		// Readme...
 		fs.copyFile(sourcePathBuilder('README.md'), distPathBuilder('README.md')),
+		// All packages use the same license...
 		fs.copyFile(sourceRootPathBuilder('..', 'LICENSE.txt'), distPathBuilder('LICENSE.txt')),
-		fs.writeFile(distPathBuilder('tsconfig.json'), JSON.stringify(builtTSConfig, null, 2), 'utf8'),
+		// Include a tsconfig ready for use in the final output for API doc generation...
+		fs.copyFile(sourcePathBuilder('tsconfig.dist.json'), distPathBuilder('tsconfig.json')),
+		// Submodule declarations for later API doc generation...
 		fs.writeFile(distSubmoduleBundlePath, JSON.stringify(declarations), 'utf8'),
+		// Index files...
 		fs.writeFile(distPathBuilder('index.js'), indexStub.join('\n'), 'utf8'),
 		fs.writeFile(distPathBuilder('index.d.ts'), indexDeclaration.join('\n'), 'utf8'),
 	]);

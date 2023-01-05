@@ -17,7 +17,7 @@ export const copyrightHeaderLines = [
 ].join('\n');
 
 export const REPO_ROOT = join(__dirname, '../../../');
-
+export const repoRootPathBuilder = join.bind(null, REPO_ROOT);
 export const sourceRootPathBuilder = join.bind(null, REPO_ROOT, 'src');
 export const sourceRoot = sourceRootPathBuilder();
 

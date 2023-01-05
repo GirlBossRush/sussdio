@@ -1,5 +1,6 @@
 .DS_Store
 .cache
+_api-extractor-temp
 npm-debug.log
 Thumbs.db
 node_modules/
