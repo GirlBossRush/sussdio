@@ -51,6 +51,18 @@ function isDynamicImport(node: ts.Node): node is ts.CallExpression {
 	return ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword;
 }
 
+function pluckDeclarationSpecifier(node: ts.ImportDeclaration | ts.ExportDeclaration, sourceFile: ts.SourceFile) {
+	const importPathWithQuotes = node.moduleSpecifier!.getText(sourceFile);
+	return importPathWithQuotes.slice(1, importPathWithQuotes.length - 1);
+}
+
+function pluckDynamicImportSpecifier(node: ts.CallExpression, sourceFile: ts.SourceFile) {
+	const importPathWithQuotes = node.arguments[0].getText(sourceFile);
+	const importPath = importPathWithQuotes.slice(1, importPathWithQuotes.length);
+
+	return importPath.split(`' + `);
+}
+
 function importExportVisitor(
 	ctx: ts.TransformationContext,
 	sourceFile: ts.SourceFile,
@@ -58,69 +70,131 @@ function importExportVisitor(
 	regexps: Record<string, RegExp>
 ) {
 	const visitor: ts.Visitor = (node: ts.Node): ts.Node => {
-		let importPath: string | undefined;
-
-		if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) {
-			const importPathWithQuotes = node.moduleSpecifier.getText(sourceFile);
-			importPath = importPathWithQuotes.slice(1, importPathWithQuotes.length - 1);
-		} else if (isDynamicImport(node)) {
-			const importPathWithQuotes = node.arguments[0].getText(sourceFile);
-			importPath = importPathWithQuotes.slice(1, importPathWithQuotes.length - 1);
-		} else if (
-			ts.isImportTypeNode(node) &&
-			ts.isLiteralTypeNode(node.argument) &&
-			ts.isStringLiteral(node.argument.literal)
-		) {
-			// `.text` instead of `getText` bc this node doesn't map to sf (it's generated d.ts)
-			importPath = node.argument.literal.text;
-		}
-
-		if (importPath) {
+		if (ts.isImportDeclaration(node) && node.moduleSpecifier) {
+			const importPath = pluckDeclarationSpecifier(node, sourceFile);
 			const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
 
-			// Only rewrite relative path.
-			if (rewrittenPath !== importPath) {
-				if (ts.isImportDeclaration(node)) {
+			return ctx.factory.updateImportDeclaration(
+				node,
+				ts.getModifiers(node),
+				node.importClause,
+				ctx.factory.createStringLiteral(rewrittenPath, true),
+				node.assertClause);
+		}
 
-					return ctx.factory.updateImportDeclaration(
-						node,
-						ts.getModifiers(node),
-						node.importClause,
-						ctx.factory.createStringLiteral(rewrittenPath),
-						node.assertClause);
+		if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
+			const importPath = pluckDeclarationSpecifier(node, sourceFile);
+			const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
 
-				} else if (ts.isExportDeclaration(node)) {
-					return ctx.factory.updateExportDeclaration(
-						node,
-						ts.getModifiers(node),
-						node.isTypeOnly,
-						node.exportClause,
-						ctx.factory.createStringLiteral(rewrittenPath),
-						node.assertClause
-					);
-				} else if (isDynamicImport(node)) {
-					return ctx.factory.updateCallExpression(
-						node,
-						node.expression,
-						node.typeArguments,
-						ctx.factory.createNodeArray([
-							ctx.factory.createStringLiteral(rewrittenPath),
-						])
-					);
-				} else if (ts.isImportTypeNode(node)) {
-					return ctx.factory.updateImportTypeNode(
-						node,
-						ctx.factory.createLiteralTypeNode(
-							ctx.factory.createStringLiteral(rewrittenPath)
-						),
-						node.assertions,
-						node.qualifier,
-						node.typeArguments,
-						node.isTypeOf,
-					);
-				}
-			}
-			return node;
+			return ctx.factory.updateExportDeclaration(
+				node,
+				ts.getModifiers(node),
+				node.isTypeOnly,
+				node.exportClause,
+				ctx.factory.createStringLiteral(rewrittenPath, true),
+				node.assertClause
+			);
+		}
+
+		// if (isDynamicImport(node)) {
+		// 	console.log(...(node.arguments).map(arg => arg.getText(sourceFile)));
+		// 	const [firstImportSegment, ...restImportSegments] = pluckDynamicImportSpecifier(node, sourceFile);
+		// 	return ctx.factory.updateCallExpression(
+		// 		node,
+		// 		node.expression,
+		// 		node.typeArguments,
+		// 		ctx.factory.createNodeArray([
+		// 			// ctx.factory.string
+		// 		])
+		// 	);
+		// }
+		if (ts.isTypeReferenceNode(node) && node.typeArguments) {
+			return ctx.factory.updateTypeReferenceNode(
+				node,
+				node.typeName,
+				ctx.factory.createNodeArray(
+					node.typeArguments.map(typeArg => {
+						return visitor(typeArg) as any;
+					})
+				)
+			);
+		}
+
+		if (
+			ts.isImportTypeNode(node) &&
+			ts.isLiteralTypeNode(node.argument) &&
+			ts.isStringLiteral(node.argument.literal)) {
+			const importPath = node.argument.literal.text;
+			const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
+
+			return ctx.factory.updateImportTypeNode(
+				node,
+				ctx.factory.createLiteralTypeNode(
+					ctx.factory.createStringLiteral(rewrittenPath, true)
+				),
+				node.assertions,
+				node.qualifier,
+				node.typeArguments ? ctx.factory.createNodeArray(node.typeArguments.map(typeArg => {
+					return visitor(typeArg) as any;
+				})) : undefined,
+				node.isTypeOf,
+			);
+		}
+
+		// if (
+		// 	ts.isImportEqualsDeclaration(node) &&
+		// 	ts.isExternalModuleReference(node.moduleReference) &&
+		// 	ts.isStringLiteral(node.moduleReference.expression)) {
+		// 	const importPath = node.moduleReference.expression.text;
+		// 	const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
+
+		// 	return ctx.factory.updateImportEqualsDeclaration(
+		// 		node,
+		// 		node.modifiers,
+		// 		node.isTypeOnly,
+		// 		node.name,
+		// 		ctx.factory.createExternalModuleReference(
+		// 			ctx.factory.createStringLiteral(rewrittenPath, true)
+		// 		)
+		// 	);
+		// }
+
+		if (ts.isExportAssignment(node) && ts.isStringLiteral(node.expression)) {
+			const importPath = node.expression.text;
+			const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
+
+			return ctx.factory.updateExportAssignment(
+				node,
+				node.modifiers,
+				ctx.factory.createStringLiteral(rewrittenPath, true)
+			);
+		}
+
+		if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+			const importPath = node.moduleSpecifier.text;
+			const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
+
+			return ctx.factory.updateExportDeclaration(
+				node,
+				node.modifiers,
+				node.isTypeOnly,
+				node.exportClause,
+				ctx.factory.createStringLiteral(rewrittenPath, true),
+				node.assertClause
+			);
+		}
+
+		if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+			const importPath = node.moduleSpecifier.text;
+			const rewrittenPath = rewritePath(importPath, sourceFile, opts, regexps);
+
+			return ctx.factory.updateImportDeclaration(
+				node,
+				node.modifiers,
+				node.importClause,
+				ctx.factory.createStringLiteral(rewrittenPath, true),
+				node.assertClause
+			);
 		}
 
 		return ts.visitEachChild(node, visitor, ctx);

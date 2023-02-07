@@ -1,10 +1,25 @@
 {
-  "files": [],
-	"compilerOptions": {
-		"outDir": "../out-sussudio",
-	},
-  "references": [
-		{ "path": "./vs/base" },
-		{ "path": "./vs/platform" }
-  ]
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+		"rootDir": ".",
+    "outDir": "../out-sussudio",
+		"paths": {
+			"vs/*": [
+				"./vs/*"
+			]
+		}
+  },
+	"allowJs": true,
+	"include": [
+		"./typings",
+		"./vs",
+		"vscode-dts/vscode.proposed.*.d.ts",
+		"vscode-dts/vscode.d.ts"
+	],
+	"exclude": [
+		"**/out-sussudio/**/*",
+		"**/test/**/*",
+		"**/tests/**/*",
+		"*/**/*.test.ts",
+	]
 }

@@ -3,62 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './monkeypatch';
+
 import { ExtractorConfig, Extractor } from '@microsoft/api-extractor';
-import { PackageNameParser } from '@rushstack/node-core-library/lib/PackageName';
-import { ModuleSource } from '@microsoft/tsdoc/lib-commonjs/beta/DeclarationReference';
 import { TSDocTagSyntaxKind, Standardization, TSDocTagDefinition } from '@microsoft/tsdoc';
-import { PackageConfig, repoRootPathBuilder, scopePrefix } from './common';
+import { PackageConfig, moduleDeclarationPattern, repoRootPathBuilder } from './common';
 import { basename, dirname, join } from 'path';
 import { readFileSync, mkdirSync, existsSync } from 'fs';
 
 export const reportFolder = repoRootPathBuilder('_api-review');
 export const reportTempFolder = repoRootPathBuilder('_api-extractor-temp');
 export const docModelTempFolder = join(reportTempFolder, 'doc-models');
-
-const declarationPattern = /\.d\.m?ts$/i;
-// HACK: Gets around the fact that the API Extractor doesn't support
-// ESM module declarations.
-(ExtractorConfig as any)._declarationFileExtensionRegExp = declarationPattern;
-
-// HACK: VS Code's TypeScript version is too new for API Extractor.
-(Extractor as any)._checkCompilerCompatibility = () => { };
-
-interface ParsedPackage {
-	packageName: string;
-	scopeName: string;
-	unscopedPackageName: string;
-	importPath: string;
-}
-
-// HACK: Fixes issue where package name parsing prevents submodule paths.
-(ModuleSource as any)._fromPackageName = function (parsed: ParsedPackage, packageName: string, importPath?: string) {
-	if (!parsed) {
-		throw new Error('Parsed package must be provided.');
-	}
-
-	let path = packageName;
-
-	if (importPath) {
-		path += '/' + importPath;
-		parsed.importPath = importPath;
-	}
-
-	const source = new ModuleSource(path);
-	(source as any)._pathComponents = parsed;
-	return source;
-};
-
-// HACK: Fixes issue where package name parsing prevents submodule paths.
-PackageNameParser.prototype.parse = function (packageName: string) {
-	const result = this.tryParse(packageName);
-
-	if (result.error && !result.error.includes('invalid character')) {
-		throw new Error(result.error);
-	}
-	result.error = '';
-
-	return result;
-};
 
 const tSDocTagDefinitions: readonly TSDocTagDefinition[] = [
 	// Fixes many mispellings of @return
@@ -86,7 +41,6 @@ const tSDocTagDefinitions: readonly TSDocTagDefinition[] = [
 		syntaxKind: TSDocTagSyntaxKind.BlockTag,
 		tagNameWithUpperCase: '@EVENT'
 	},
-
 	// Used to clarify changes made to upstream
 	{
 		tagName: '@sussudio',
@@ -94,6 +48,14 @@ const tSDocTagDefinitions: readonly TSDocTagDefinition[] = [
 		standardization: Standardization.None,
 		syntaxKind: TSDocTagSyntaxKind.BlockTag,
 		tagNameWithUpperCase: '@SUSSUDIO'
+	},
+	// Used to define a module.
+	{
+		tagName: '@module',
+		allowMultiple: false,
+		standardization: Standardization.None,
+		syntaxKind: TSDocTagSyntaxKind.BlockTag,
+		tagNameWithUpperCase: '@MODULE'
 	},
 ];
 
@@ -104,30 +66,39 @@ export function createAPIExtractorConfig(submodulePath: string, { unscopedPackag
 	const submoduleDirectory = dirname(submodulePath);
 	const submoduleBaseName = basename(submodulePath);
 	const absoluteSubmodulePath = join(distDirectory, submodulePath);
-	const submoduleName = submoduleBaseName.replace(declarationPattern, '');
-	const reportFileName = submoduleBaseName.replace(declarationPattern, '.api.md');
+	const submoduleName = submoduleBaseName.replace(moduleDeclarationPattern, '');
+	const reportFileName = submoduleBaseName.replace(moduleDeclarationPattern, '.api.md');
 	const submodulePackageName = join(unscopedPackageName, submoduleDirectory, submoduleName);
 	const dotdelimitedPackageName = submodulePackageName.replace(/\//g, '.');
+
+	const projectFolder = dirname(absoluteSubmodulePath);
+
 
 	const extractorConfig = ExtractorConfig.prepare({
 		configObjectFullPath: undefined,
 		packageJsonFullPath: distPackageJsonPath,
+
 		packageJson: {
 			...packageJSON,
-			name: join(scopePrefix, dotdelimitedPackageName)
+			name: dotdelimitedPackageName
 		},
 		configObject: {
+			newlineKind: 'lf',
+			bundledPackages: [
+				'@sussudio/base/common/lifecycle.mjs'
+			],
 			compiler: {
 				overrideTsconfig: {
 					...tsConfig,
 					include: [
+						'**/*.ts',
 						absoluteSubmodulePath,
 						// HACK: Include global typings for the project.
 						distPathBuilder('typings')
 					],
 				},
 			},
-			projectFolder: dirname(absoluteSubmodulePath),
+			projectFolder,
 			mainEntryPointFilePath: absoluteSubmodulePath,
 			apiReport: {
 				enabled: true,
@@ -140,12 +111,15 @@ export function createAPIExtractorConfig(submodulePath: string, { unscopedPackag
 				apiJsonFilePath: join(docModelTempFolder, `${dotdelimitedPackageName}.api.json`),
 				enabled: true,
 				includeForgottenExports: true,
-				projectFolderUrl: 'https://github.com/GirlBossRush/sussudio/tree/main/src'
+				projectFolderUrl: 'https://github.com/sister.software/sussudio/tree/main/src'
 			},
 		}
 	});
 
-	extractorConfig.packageJson!.name = join(scopePrefix, submodulePackageName);
+	// HACK: Fixes issue where package name parsing prevents submodule paths.
+	extractorConfig.packageJson!.name = submodulePackageName + '.mjs';
+
+	// console.log('>>>', extractorConfig.packageJson!.name);
 	extractorConfig.tsdocConfiguration.addTagDefinitions(tSDocTagDefinitions, true);
 
 	return extractorConfig;
@@ -185,7 +159,7 @@ export async function runAPIExtractor(subModuleExtractorConfigs: ModuleExtractor
 
 		// TODO: Consider running this in parallel.
 		const extractorResult = Extractor.invoke(extractorConfig, {
-			localBuild: true,
+			localBuild: process.env.NODE_ENV !== 'production' && !!process.env.CI
 		});
 
 		if (!extractorResult.succeeded) {

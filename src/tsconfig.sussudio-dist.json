@@ -2,11 +2,23 @@
 	"compilerOptions": {
 		"module": "ESNext",
 		"target": "ES2022",
-		"moduleResolution": "node",
+		"moduleResolution": "NodeNext",
 		"experimentalDecorators": true,
 		"forceConsistentCasingInFileNames": true,
 		"rootDir": ".",
+		"baseUrl": ".",
 		"allowJs": true,
+		"checkJs": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"noUnusedLocals": true,
+		"allowUnreachableCode": false,
+		"strict": true,
+		"exactOptionalPropertyTypes": false,
+		"useUnknownInCatchVariables": false,
+		"paths": {
+			"sussudio/*": ["./*"]
+		},
 		"lib": [
 			"ES2016",
 			"ES2017.Object",
@@ -34,5 +46,10 @@
 			"DOM.Iterable",
 			"WebWorker.ImportScripts"
 		]
-	}
+	},
+	"exclude": [
+		"node_modules",
+		"base/worker/**/*",
+		"loader.js"
+	]
 }

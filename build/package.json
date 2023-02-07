@@ -65,6 +65,9 @@
     "source-map": "0.6.1",
     "through2": "^4.0.2",
     "tmp": "^0.2.1",
+    "typedoc": "0.23.24",
+    "typedoc-github-wiki-theme": "^1.0.1",
+    "typedoc-plugin-markdown": "^3.14.0",
     "vscode-universal-bundler": "^0.0.2"
   },
   "scripts": {
